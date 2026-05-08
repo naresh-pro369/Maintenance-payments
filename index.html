@@ -100,6 +100,29 @@
     .app-body{padding:0 10px}
     .panel{padding:16px}
   }
+
+  /* PIN modal */
+  .pin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:center;justify-content:center}
+  .pin-overlay.open{display:flex}
+  .pin-box{background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border);padding:28px 24px;width:320px;max-width:90vw;text-align:center}
+  .pin-icon{width:48px;height:48px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:22px;color:var(--accent)}
+  .pin-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+  .pin-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+  .pin-dots{display:flex;gap:10px;justify-content:center;margin-bottom:18px}
+  .pin-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;transition:background .15s,border-color .15s}
+  .pin-dot.filled{background:var(--accent);border-color:var(--accent)}
+  .pin-dot.error{background:#E24B4A;border-color:#E24B4A}
+  .pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .pin-key{padding:13px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;font-size:16px;font-weight:500;cursor:pointer;color:var(--text);font-family:inherit;transition:background .15s}
+  .pin-key:hover{background:var(--bg2)}
+  .pin-key:active{background:var(--bg3)}
+  .pin-key.del{font-size:13px;color:var(--text2)}
+  .pin-error{font-size:12px;color:#E24B4A;min-height:18px;margin-bottom:4px}
+  .pin-cancel{font-size:13px;color:var(--text3);background:transparent;border:none;cursor:pointer;font-family:inherit;padding:4px 8px}
+  .pin-cancel:hover{color:var(--text2)}
+  .admin-badge{display:inline-flex;align-items:center;gap:4px;background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:500;padding:3px 10px;border-radius:999px;margin-left:8px;cursor:pointer;border:none;font-family:inherit;transition:opacity .2s}
+  .admin-badge:hover{opacity:.8}
+  .locked-btn{opacity:0.5;cursor:default !important}
 </style>
 </head>
 <body>
@@ -108,6 +131,10 @@
   <i class="ti ti-building" style="font-size:22px;color:var(--accent)" aria-hidden="true"></i>
   <h1>Society Payment Tracker</h1>
   <span>2026</span>
+  <button class="admin-badge" id="admin-badge" onclick="handleAdminBadge()" style="margin-left:auto">
+    <i class="ti ti-lock" aria-hidden="true" id="admin-lock-icon"></i>
+    <span id="admin-badge-text">Admin</span>
+  </button>
 </div>
 
 <div class="app-body">
@@ -237,11 +264,11 @@
               <i class="ti ti-grid-dots" aria-hidden="true"></i>
             </button>
           </div>
-          <button class="btn-ghost" onclick="exportCSV()">
-            <i class="ti ti-download" aria-hidden="true"></i> Export CSV
+          <button class="btn-ghost" id="btn-export" onclick="exportCSV()">
+            <i class="ti ti-download" aria-hidden="true"></i> Export CSV <i class="ti ti-lock" aria-hidden="true" id="lock-export" style="font-size:11px;margin-left:2px;color:var(--text3)"></i>
           </button>
-          <button class="btn-ghost" onclick="clearAllData()" style="color:#993C1D;border-color:var(--danger-border)">
-            <i class="ti ti-trash" aria-hidden="true"></i> Clear Data
+          <button class="btn-ghost" id="btn-clear" onclick="clearAllData()" style="color:#993C1D;border-color:var(--danger-border)">
+            <i class="ti ti-trash" aria-hidden="true"></i> Clear Data <i class="ti ti-lock" aria-hidden="true" id="lock-clear" style="font-size:11px;margin-left:2px;color:#993C1D"></i>
           </button>
         </div>
       </div>
@@ -279,12 +306,50 @@
   </p>
 </div>
 
+<!-- PIN Modal -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-box">
+    <div class="pin-icon"><i class="ti ti-lock" aria-hidden="true"></i></div>
+    <div class="pin-title" id="pin-title">Admin access required</div>
+    <div class="pin-sub" id="pin-sub">Enter your 4-digit PIN to continue</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key del" onclick="pinKey('clear')">✕ Clear</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key del" onclick="pinKey('back')">⌫</button>
+    </div>
+    <button class="pin-cancel" onclick="closePin()">Cancel</button>
+  </div>
+</div>
+
 <script>
 const ALL_FLATS = ['101','102','103','104','201','202','203','204','301','302','303','304','401','402','403','404','501','502','503','504'];
+
+// ── CHANGE THIS PIN TO YOUR OWN 4-DIGIT CODE ──
+const ADMIN_PIN = '1234';
+// ──────────────────────────────────────────────
 
 let payments = [];
 let currentMonth = 'May 2026';
 let currentView = 'table';
+let adminUnlocked = false;
+let pinBuffer = '';
+let pinPendingAction = null;
 
 const SEED = [
   {flat:'101',name:'Rajesh Kumar',month:'May 2026',amount:2500,mode:'UPI (Google Pay / PhonePe / Paytm)',txn:'UPI9823450012',notes:'',ts:'02/05/2026, 09:14'},
@@ -306,6 +371,96 @@ function save() {
   try { localStorage.setItem('soc_payments_v2', JSON.stringify(payments)); } catch(e) {}
 }
 
+/* ── PIN LOGIC ── */
+function requirePin(action) {
+  if (adminUnlocked) { action(); return; }
+  pinPendingAction = action;
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-overlay').classList.add('open');
+}
+
+function closePin() {
+  pinBuffer = '';
+  pinPendingAction = null;
+  document.getElementById('pin-overlay').classList.remove('open');
+  document.getElementById('pin-error').textContent = '';
+  updatePinDots();
+}
+
+function pinKey(k) {
+  if (k === 'clear') { pinBuffer = ''; updatePinDots(); return; }
+  if (k === 'back')  { pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); return; }
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    setTimeout(checkPin, 120);
+  }
+}
+
+function checkPin() {
+  if (pinBuffer === ADMIN_PIN) {
+    adminUnlocked = true;
+    document.getElementById('pin-overlay').classList.remove('open');
+    updateAdminBadge();
+    pinBuffer = '';
+    if (pinPendingAction) { pinPendingAction(); pinPendingAction = null; }
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    document.querySelectorAll('.pin-dot').forEach(d => { d.classList.add('error'); d.classList.remove('filled'); });
+    setTimeout(() => {
+      pinBuffer = '';
+      document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
+      updatePinDots();
+      document.getElementById('pin-error').textContent = '';
+    }, 800);
+  }
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd' + i);
+    d.classList.toggle('filled', i < pinBuffer.length);
+    d.classList.remove('error');
+  }
+}
+
+function handleAdminBadge() {
+  if (adminUnlocked) {
+    adminUnlocked = false;
+    updateAdminBadge();
+  } else {
+    requirePin(() => {});
+  }
+}
+
+function updateAdminBadge() {
+  const icon = document.getElementById('admin-lock-icon');
+  const text = document.getElementById('admin-badge-text');
+  const exportBtn = document.getElementById('btn-export');
+  const clearBtn = document.getElementById('btn-clear');
+  const lockExport = document.getElementById('lock-export');
+  const lockClear = document.getElementById('lock-clear');
+  if (adminUnlocked) {
+    icon.className = 'ti ti-lock-open';
+    text.textContent = 'Admin (unlock)';
+    exportBtn.style.opacity = '1';
+    clearBtn.style.opacity = '1';
+    lockExport.style.display = 'none';
+    lockClear.style.display = 'none';
+  } else {
+    icon.className = 'ti ti-lock';
+    text.textContent = 'Admin';
+    exportBtn.style.opacity = '0.5';
+    clearBtn.style.opacity = '0.5';
+    lockExport.style.display = '';
+    lockClear.style.display = '';
+  }
+}
+
+/* ── APP LOGIC ── */
 function switchTab(t) {
   document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -445,32 +600,37 @@ function clearFilters() {
 }
 
 function exportCSV() {
-  const monthPay = payments.filter(p => p.month === currentMonth);
-  const rows = [['Flat No.', 'Owner Name', 'Month', 'Amount (₹)', 'Payment Mode', 'Transaction Reference', 'Notes', 'Status', 'Submitted At']];
-  ALL_FLATS.forEach(f => {
-    const rec = monthPay.find(p => p.flat === f);
-    if (rec) {
-      rows.push([rec.flat, rec.name, rec.month, rec.amount, rec.mode, rec.txn, rec.notes, 'Paid', rec.ts]);
-    } else {
-      rows.push([f, '', currentMonth, '', '', '', '', 'Pending', '']);
-    }
+  requirePin(() => {
+    const monthPay = payments.filter(p => p.month === currentMonth);
+    const rows = [['Flat No.', 'Owner Name', 'Month', 'Amount (₹)', 'Payment Mode', 'Transaction Reference', 'Notes', 'Status', 'Submitted At']];
+    ALL_FLATS.forEach(f => {
+      const rec = monthPay.find(p => p.flat === f);
+      if (rec) {
+        rows.push([rec.flat, rec.name, rec.month, rec.amount, rec.mode, rec.txn, rec.notes, 'Paid', rec.ts]);
+      } else {
+        rows.push([f, '', currentMonth, '', '', '', '', 'Pending', '']);
+      }
+    });
+    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+    a.download = 'payments_' + currentMonth.replace(' ', '_') + '.csv';
+    a.click();
   });
-  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
-  a.download = 'payments_' + currentMonth.replace(' ', '_') + '.csv';
-  a.click();
 }
 
 function clearAllData() {
-  if (confirm('This will delete ALL payment records permanently. Are you sure?')) {
-    payments = [];
-    save();
-    renderDash();
-  }
+  requirePin(() => {
+    if (confirm('This will delete ALL payment records permanently. Are you sure?')) {
+      payments = [];
+      save();
+      renderDash();
+    }
+  });
 }
 
 load();
+updateAdminBadge();
 buildMonthPills();
 </script>
 </body>
